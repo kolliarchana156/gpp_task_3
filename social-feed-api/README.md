@@ -73,22 +73,39 @@ This system solves the "Celebrity Problem" and slow feed loading times by shifti
 
 
 social-feed-api/
+
 ├── src/
+
 │   ├── config/
+
 │   │   ├── db.js           # PostgreSQL Connection Pool
+
 │   │   └── redisClient.js  # Redis Client Configuration
+
 │   ├── controllers/
+
 │   │   ├── userController.js # Auth & Follow Logic
+
 │   │   └── postController.js # Post, Like, & Feed Logic (Fan-out)
+
 │   ├── routes/
+
 │   │   ├── authRoutes.js
+
 │   │   ├── userRoutes.js
+
 │   │   └── postRoutes.js
+
 │   └── index.js            # Entry Point
+
 ├── .env.example            # Environment variables template
+
 ├── init-db.js              # Database Initialization Script
+
 ├── schema.sql              # SQL Schema definitions
+
 ├── package.json            # Dependencies
+
 └── README.md               # Documentation
 
 ---
