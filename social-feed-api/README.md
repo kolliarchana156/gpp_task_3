@@ -71,7 +71,7 @@ This system solves the "Celebrity Problem" and slow feed loading times by shifti
 
 ## 📂 Project Structure
 
-bash
+```bash
 social-feed-api/
 ├── src/
 │   ├── config/
@@ -90,7 +90,7 @@ social-feed-api/
 ├── schema.sql              # SQL Schema definitions
 ├── package.json            # Dependencies
 └── README.md               # Documentation
-`
+```
 
 -----
 
@@ -108,20 +108,20 @@ Ensure you have the following running locally:
 
 1.  *Clone the repository:*
 
-    bash
+    ```bash
     git clone [https://github.com/yourusername/social-feed-api.git](https://github.com/yourusername/social-feed-api.git)
     cd social-feed-api
-    
+    ```
 
 2.  *Install dependencies:*
 
-    bash
+    ```bash
     npm install
-    
+    ```
 
 3.  *Configure Environment:*
 
-      * Create a .env file or update src/config/db.js with your DB credentials.
+      * Create a `.env` file or update `src/config/db.js` with your DB credentials.
 
 4.  *Initialize Database:*
 
@@ -129,19 +129,19 @@ Ensure you have the following running locally:
 
     <!-- end list -->
 
-    bash
+    ```bash
     node init-db.js
-    
+    ```
 
     *Output should be: ✅ Database tables created successfully!*
 
 5.  *Run the Server:*
 
-    bash
+    ```bash
     npm run dev
     # OR
     node src/index.js
-    
+    ```
 
 -----
 
@@ -149,14 +149,14 @@ Ensure you have the following running locally:
 
 Create a .env file in the root directory:
 
-ini
+```ini
 PORT=3000
 DB_HOST=localhost
 DB_USER=postgres
 DB_PASSWORD=your_password
 DB_NAME=postgres
 REDIS_URL=redis://localhost:6379
-
+```
 
 -----
 
