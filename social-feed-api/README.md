@@ -1,185 +1,189 @@
+# 🚀 Scalable Social Media Feed API
 
+![Node.js](https://img.shields.io/badge/Node.js-v14+-green?style=flat&logo=node.js)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-v13+-blue?style=flat&logo=postgresql)
+![Redis](https://img.shields.io/badge/Redis-v5+-red?style=flat&logo=redis)
+![License](https://img.shields.io/badge/License-MIT-yellow?style=flat)
 
-### 1\. `README.md` Content
-
-````markdown
-# Social Media Feed API
-
-A scalable REST API for a social media feed system, built with Node.js, PostgreSQL, and Redis. This system implements a **Fan-Out-On-Write** architecture to ensure low-latency feed retrieval and uses **Cursor-Based Pagination** for efficient scrolling.
-
-## 🚀 Key Features
-- **User Management**: Register users and follow/unfollow functionality.
-- **Post System**: Create posts and "Like" posts with real-time counter updates.
-- **High-Performance Feed**: Personalized feeds generated via a "Push" model to Redis.
-- **Scalability**:
-  - **Caching**: Redis Sorted Sets for O(1) feed retrieval.
-  - **Database**: Denormalized counters (`like_count`, `follower_count`) for fast reads.
-  - **Concurrency**: ACID transactions ensure data integrity for likes and follows.
+A high-performance backend API designed to handle **read-heavy** social media workloads. This system implements the **Fan-Out-On-Write** architecture pattern to deliver near-instant feed retrieval using **Redis Caching**, alongside **Cursor-Based Pagination** for infinite scrolling and **ACID transactions** for data integrity.
 
 ---
 
-## 🛠️ Architecture & Design Decisions
-
-### 1. Feed Generation Algorithm: Fan-Out-On-Write (Push Model)
-I chose the **Fan-Out-On-Write** approach to optimize for read-heavy workloads (social media typically has a 100:1 read-to-write ratio).
-
-* **How it works**: When a user creates a post, the system performs an asynchronous task that identifies all followers of that user and pushes the new Post ID into their specific feed lists in the cache.
-* **Trade-off**: This increases the time taken to *write* a post (Write Latency) but guarantees near-instant access when users load their feed (Read Latency).
-
-### 2. Caching Strategy
-* **Technology**: Redis
-* **Data Structure**: **Sorted Set (`ZSET`)**
-* **Why?**: Feeds require strict chronological ordering. `ZSET` allows us to store the `post_id` as the value and the `timestamp` as the score.
-    * **Retrieval**: We use `ZREVRANGE` to instantly fetch the "Top 10" newest posts.
-    * **Pagination**: We use `ZREVRANGEBYSCORE` to fetch posts older than a specific timestamp (cursor).
-
-### 3. Database Schema & Denormalization
-The system uses **PostgreSQL** as the source of truth. To avoid expensive `COUNT(*)` queries on every page load, I implemented **Denormalization**:
-* `users` table: Stores `follower_count` and `following_count`.
-* `posts` table: Stores `like_count` and `comment_count`.
-* **Consistency**: These counters are updated using **Atomic Database Transactions**. If a user likes a post, the row insertion into `likes` and the increment on `posts` happen together or fail together.
+## 📑 Table of Contents
+- [Architecture & Design](#-architecture--design)
+- [Features](#-features)
+- [Tech Stack](#-tech-stack)
+- [Project Structure](#-project-structure)
+- [Getting Started](#-getting-started)
+- [Environment Variables](#-environment-variables)
+- [API Documentation](#-api-documentation)
+- [Future Improvements](#-future-improvements)
 
 ---
 
-## 🏗️ Architecture Diagram
+## 🏗 Architecture & Design
 
-```mermaid
-graph TD
-    User[Client / Mobile App] -->|HTTP Requests| API[Node.js API Server]
-    
-    subgraph "Write Path (Create Post)"
-    API -->|1. Save Post| DB[(PostgreSQL)]
-    API -->|2. Fetch Followers| DB
-    API -->|3. Fan-Out (Push ID)| Redis[(Redis Cache)]
-    end
-    
-    subgraph "Read Path (Get Feed)"
-    API -->|1. Get Post IDs| Redis
-    API -->|2. Hydrate Content| DB
-    end
-````
+This system solves the "Celebrity Problem" and slow feed loading times by shifting the computational cost from **Read time** to **Write time**.
 
------
+![System Architecture](architecture.png)
 
-## ⚙️ Setup & Installation
+### Key Design Decisions:
+1.  **Fan-Out-On-Write (Push Model):**
+    * When a user creates a post, the system asynchronously "pushes" the Post ID to the Redis cache of all their followers.
+    * **Trade-off:** Slower write (post creation) for lightning-fast reads (feed loading).
+2.  **Redis Sorted Sets (ZSET):**
+    * Used to store user feeds.
+    * **Score:** Unix Timestamp (for sorting).
+    * **Value:** Post ID.
+    * Allows efficient range queries (`ZREVRANGEBYSCORE`) for pagination.
+3.  **Cursor-Based Pagination:**
+    * Unlike `OFFSET` pagination, this remains stable even if new posts are added while a user is scrolling.
+    * We use the timestamp of the last seen post as the cursor.
+4.  **Denormalization & Transactions:**
+    * Counters like `follower_count` and `like_count` are stored on the tables to avoid expensive `COUNT(*)` queries.
+    * Updates are wrapped in **SQL Transactions** to ensure data consistency.
 
-### Prerequisites
+---
 
-  * Node.js (v14+)
-  * PostgreSQL (v12+)
-  * Redis (v5+)
+## ✨ Features
 
-### 1\. Clone the Repository
+* **Authentication:** User registration and management.
+* **Social Graph:** Follow/Unfollow users with transactional integrity.
+* **Post Broadcasting:** Posts are instantly distributed to followers' caches.
+* **Smart Feed:** Personalized feed retrieval with <50ms latency.
+* **Infinite Scroll:** Optimized pagination using cursors.
+* **Interactions:** Like/Unlike posts with real-time counter updates.
+* **Compatibility:** Custom Redis implementation to support both Windows (Redis 5) and Linux environments.
 
-```bash
-git clone <repository_url>
-cd social-feed-api
-```
+---
 
-### 2\. Install Dependencies
+## 🛠 Tech Stack
 
-```bash
-npm install
-```
+| Component | Technology | Description |
+| :--- | :--- | :--- |
+| **Runtime** | Node.js | Backend logic execution |
+| **Framework** | Express.js | REST API routing and middleware |
+| **Database** | PostgreSQL | Primary source of truth (Relational Data) |
+| **Cache** | Redis | In-memory store for feeds (Speed Layer) |
+| **Client Libs** | `pg`, `redis` | Database drivers |
 
-### 3\. Environment Configuration
-
-Create a `.env` file in the root directory and configure your database credentials. You can copy the example file:
-
-```bash
-cp .env.example .env
-```
-
-### 4\. Database Initialization
-
-Run the initialization script to create the required tables (`users`, `posts`, `follows`, `likes`) and indexes.
-
-```bash
-node init-db.js
-```
-
-### 5\. Run the Application
-
-```bash
-# Development mode (restarts on changes)
-npm run dev
-
-# Production mode
-node src/index.js
-```
-
-The server will start on `http://localhost:3000`.
-
------
-
-## 🧪 API Documentation
-
-### Authentication
-
-  * **POST** `/auth/register`
-      * Body: `{ "username": "alice", "email": "alice@ex.com", "password": "123" }`
-
-### User Operations
-
-  * **POST** `/users/follow`
-      * Body: `{ "follower_id": 1, "following_id": 2 }`
-
-### Post Operations
-
-  * **POST** `/posts`
-      * Body: `{ "user_id": 2, "content": "Hello World" }`
-  * **POST** `/posts/:id/like`
-      * Body: `{ "user_id": 1 }`
-
-### Feed Retrieval
-
-  * **GET** `/posts/feed`
-      * Query Params: `user_id` (required), `cursor` (optional timestamp)
-      * Example: `GET /posts/feed?user_id=1&cursor=1715000000`
-      * Response:
-        ```json
-        {
-          "feed": [ ...list of posts... ],
-          "nextCursor": 1714999000
-        }
-        ```
-
------
+---
 
 ## 📂 Project Structure
 
-```
+bash
 social-feed-api/
 ├── src/
-│   ├── config/         # DB and Redis connection logic
-│   ├── controllers/    # Business logic (Feed, Auth, Posts)
-│   ├── routes/         # API Endpoint definitions
-│   └── index.js        # App Entry point
-├── init-db.js          # Database setup script
-├── schema.sql          # SQL Schema definition
-├── .env.example        # Environment variable template
-└── package.json        # Dependencies
-```
+│   ├── config/
+│   │   ├── db.js           # PostgreSQL Connection Pool
+│   │   └── redisClient.js  # Redis Client Configuration
+│   ├── controllers/
+│   │   ├── userController.js # Auth & Follow Logic
+│   │   └── postController.js # Post, Like, & Feed Logic (Fan-out)
+│   ├── routes/
+│   │   ├── authRoutes.js
+│   │   ├── userRoutes.js
+│   │   └── postRoutes.js
+│   └── index.js            # Entry Point
+├── .env.example            # Environment variables template
+├── init-db.js              # Database Initialization Script
+├── schema.sql              # SQL Schema definitions
+├── package.json            # Dependencies
+└── README.md               # Documentation
+`
 
-````
+-----
 
----
+## 🚀 Getting Started
 
-### 2. `.env.example` Content
-*(Create a file named `.env.example` and paste this inside)*
+### Prerequisites
 
-```ini
-# Server Configuration
+Ensure you have the following running locally:
+
+  * [Node.js](https://nodejs.org/) (v14+)
+  * [PostgreSQL](https://www.postgresql.org/) (Port 5432)
+  * [Redis](https://redis.io/) (Port 6379)
+
+### Installation Steps
+
+1.  **Clone the repository:**
+
+    bash
+    git clone [https://github.com/yourusername/social-feed-api.git](https://github.com/yourusername/social-feed-api.git)
+    cd social-feed-api
+    
+
+2.  **Install dependencies:**
+
+    bash
+    npm install
+    
+
+3.  **Configure Environment:**
+
+      * Create a `.env` file or update `src/config/db.js` with your DB credentials.
+
+4.  **Initialize Database:**
+
+      * Run the script to create tables and indexes.
+
+    <!-- end list -->
+
+    bash
+    node init-db.js
+    
+
+    *Output should be: `✅ Database tables created successfully!`*
+
+5.  **Run the Server:**
+
+    bash
+    npm run dev
+    # OR
+    node src/index.js
+    
+
+-----
+
+## 🔐 Environment Variables
+
+Create a `.env` file in the root directory:
+
+ini
 PORT=3000
-NODE_ENV=development
-
-# PostgreSQL Database Configuration
-DB_USER=postgres
-DB_PASSWORD=password
 DB_HOST=localhost
-DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=your_password
 DB_NAME=postgres
-
-# Redis Cache Configuration
 REDIS_URL=redis://localhost:6379
-````
+
+
+-----
+
+## 📡 API Documentation
+
+### Auth & Users
+
+| Method | Endpoint | Description | Body Example |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/auth/register` | Register new user | `{"username": "alice", "email": "a@a.com", "password": "123"}` |
+| `POST` | `/users/follow` | Follow a user | `{"follower_id": 1, "following_id": 2}` |
+
+### Posts & Feed
+
+| Method | Endpoint | Description | Body / Query Params |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/posts` | Create Post (Triggers Fan-out) | `{"user_id": 2, "content": "Hello World"}` |
+| `POST` | `/posts/:id/like` | Like a Post | `{"user_id": 1}` |
+| `GET` | `/posts/feed` | Get User Feed | `?user_id=1&cursor=17100000` |
+
+-----
+
+## 🔮 Future Improvements
+
+  * **Hybrid Feed:** Implement "Pull" model for celebrity users (users with \>1M followers) to prevent Redis write bottlenecks.
+  * **Job Queue:** Move the fan-out process to a background queue (e.g., BullMQ) for better reliability.
+  * **WebSockets:** Real-time notification when a new post arrives.
+
+-----
+
