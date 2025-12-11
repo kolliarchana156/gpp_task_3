@@ -1,10 +1,6 @@
-Here is the complete content for your `README.md` file. You can copy the code block below entirely and paste it into a file named **`README.md`** in your project folder.
 
-I have also included the content for **`.env.example`** at the bottom, as you will need that for the submission as well.
 
 ### 1\. `README.md` Content
-
-*(Copy all text inside this box)*
 
 ````markdown
 # Social Media Feed API
